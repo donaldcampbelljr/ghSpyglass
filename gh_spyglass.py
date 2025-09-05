@@ -19,7 +19,7 @@ def parse_date(s: str) -> datetime:
     return datetime.strptime(s, "%Y-%m-%d")
 
 
-def build_query(topics: List[str], keywords: List[str]) -> str:
+def build_query(topics: List[str], keywords: List[str], match_all: bool = False) -> str:
     parts = []
     if topics:
         # topic:token syntax
@@ -31,6 +31,10 @@ def build_query(topics: List[str], keywords: List[str]) -> str:
         return ""
     if len(parts) == 1:
         return parts[0]
+    # If match_all is True we join parts with spaces which GitHub treats as AND
+    if match_all:
+        return " ".join(parts)
+    # default: OR the parts
     return "(" + " OR ".join(parts) + ")"
 
 
@@ -75,6 +79,7 @@ def run(argv: List[str]) -> int:
     p.add_argument("--topics", nargs="*", default=[], help="List of GitHub topics to search")
     p.add_argument("--keywords", nargs="*", default=[], help="List of keywords to search (name/desc/readme)")
     p.add_argument("--per-term", action="store_true", help="Show counts per-topic/keyword instead of aggregate")
+    p.add_argument("--all", action="store_true", dest="match_all", help="Require all provided topics/keywords (AND) instead of any (OR)")
     p.add_argument("--token", help="GitHub token (or set GITHUB_TOKEN env var)")
     p.add_argument("--exact", action="store_true", help="Try to compute exact counts by splitting large ranges (slower)")
     p.add_argument("--sleep", type=float, default=0.0, help="Sleep seconds between API calls (rate control)")
@@ -92,7 +97,7 @@ def run(argv: List[str]) -> int:
 
     token = args.token or os.getenv("GITHUB_TOKEN")
 
-    query_base = build_query(args.topics, args.keywords)
+    query_base = build_query(args.topics, args.keywords, match_all=args.match_all)
     if not query_base:
         print("Provide at least one topic or keyword")
         return 2
